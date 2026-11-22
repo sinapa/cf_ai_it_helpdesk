@@ -1,11 +1,31 @@
 import { HelpdeskSession } from "./session-do";
 import { KbIngestWorkflow, IngestPayload } from "./workflows/ingest";
+import { RepoSyncWorkflow } from "./workflows/sync-github";
 
-export { HelpdeskSession, KbIngestWorkflow };
+export { HelpdeskSession, KbIngestWorkflow, RepoSyncWorkflow };
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+
+    // Trigger GitHub wikis/ folder sync Workflow
+    if (url.pathname === "/api/sync-github" && request.method === "POST") {
+      const instance = await env.REPO_SYNC_WORKFLOW.create({
+        id: `gh-sync-${Date.now()}`,
+        params: {
+          owner: env.GITHUB_OWNER,
+          repo: env.GITHUB_REPO,
+          branch: "main",
+          dir: "wikis",
+        },
+      });
+      return Response.json({
+        status: "syncing",
+        workflowId: instance.id,
+        repo: `${env.GITHUB_OWNER}/${env.GITHUB_REPO}`,
+      });
+    }
 
     // Endpoint 1: Trigger async SOP ingestion Workflow
     if (url.pathname === "/api/ingest" && request.method === "POST") {

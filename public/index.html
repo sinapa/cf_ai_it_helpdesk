@@ -56,30 +56,17 @@
     async function seedRunbooks() {
       const btn = document.getElementById("seedBtn");
       btn.disabled = true;
-      btn.textContent = "Indexing SOPs...";
-      const sops = [
-        {
-          docId: "sop-vpn-dns",
-          title: "VPN Connected But Internal Sites Fail",
-          category: "network",
-          markdown: "## Symptom\nGlobalProtect VPN shows Connected, but internal sites (Jira, GitLab) fail to resolve.\n## macOS Fix\n1. Open Terminal and flush DNS: sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder\n2. Check /etc/resolver/corp.internal points to 10.10.0.53.\n## Windows Fix\n1. Open Command Prompt and run ipconfig /flushdns.\n## Escalation\nIf ping 10.10.0.53 times out, escalate to NetOps for a split-tunnel profile reset."
-        },
-        {
-          docId: "sop-okta-mfa",
-          title: "Okta Verify Push Not Arriving After New Phone",
-          category: "identity",
-          markdown: "## Symptom\nEmployee upgraded phone and no longer receives Okta Verify push prompts.\n## Self-Service Fix\n1. On the Okta login screen, click Verify with something else and choose SMS or Backup Code.\n2. Visit https://sso.company.internal/settings, click Edit Profile, remove the old device under Okta Verify, and scan the new QR code.\n## Escalation\nIf no backup factor is enrolled, contact IT Tier-2 on Slack #it-help with a live video ID check."
-        }
-      ];
-      for (const sop of sops) {
-        await fetch("/api/ingest", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sop)
-        });
+      btn.textContent = "Syncing GitHub...";
+      try {
+        const res = await fetch("/api/sync-github", { method: "POST" });
+        const data = await res.json();
+        btn.textContent = "GitHub Synced!";
+        appendMsg("bot", `Syncing wikis/ folder from GitHub (${data.repo}) via Cloudflare Workflows! Wait ~5 seconds, then ask an IT question.`);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "Retry Sync";
+        appendMsg("bot", "GitHub sync failed: " + err.message);
       }
-      btn.textContent = "SOPs Indexed!";
-      appendMsg("bot", "Sample VPN & Okta runbooks queued via Cloudflare Workflows! Wait ~5 seconds for embeddings to finish, then ask a question below.");
     }
 
     async function sendMessage(e) {

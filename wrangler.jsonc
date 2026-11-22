@@ -5,6 +5,10 @@
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
   "assets": { "directory": "./public" },
+  "vars": {
+    "GITHUB_OWNER": "sinapa",
+    "GITHUB_REPO": "cf-ai-it-helpdesk"
+  },
   "ai": { "binding": "AI" },
   "vectorize": [
     { "binding": "VECTORIZE", "index_name": "it-kb-index", "remote": true }
@@ -25,6 +29,11 @@
       "name": "kb-ingest-workflow",
       "binding": "KB_INGEST_WORKFLOW",
       "class_name": "KbIngestWorkflow"
+    },
+    {
+      "name": "repo-sync-workflow",
+      "binding": "REPO_SYNC_WORKFLOW",
+      "class_name": "RepoSyncWorkflow"
     }
   ]
 }
