@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cf-ai-it-helpdesk",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  "assets": { "directory": "./public" },
+  "ai": { "binding": "AI" },
+  "vectorize": [
+    { "binding": "VECTORIZE", "index_name": "it-kb-index", "remote": true }
+  ],
+  "r2_buckets": [
+    { "binding": "SOP_BUCKET", "bucket_name": "it-sop-docs" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "HELPDESK_SESSION", "class_name": "HelpdeskSession" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["HelpdeskSession"] }
+  ],
+  "workflows": [
+    {
+      "name": "kb-ingest-workflow",
+      "binding": "KB_INGEST_WORKFLOW",
+      "class_name": "KbIngestWorkflow"
+    }
+  ]
+}

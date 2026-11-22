@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IT Self-Service Helpdesk</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 760px; margin: 32px auto; padding: 0 16px; background: #f8fafc; color: #0f172a; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    button { background: #2563eb; color: white; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    button.secondary { background: #475569; font-size: 13px; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    #chat { background: white; border: 1px solid #cbd5e1; border-radius: 12px; height: 430px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .msg { padding: 10px 14px; border-radius: 10px; max-width: 82%; line-height: 1.45; white-space: pre-wrap; }
+    .user { align-self: flex-end; background: #2563eb; color: white; }
+    .bot { align-self: flex-start; background: #f1f5f9; border: 1px solid #e2e8f0; }
+    .sources { font-size: 12px; color: #64748b; margin-top: 6px; }
+    form { display: flex; gap: 8px; margin-top: 12px; }
+    input { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2 style="margin:0;">IT Helpdesk Troubleshooter</h2>
+    <button class="secondary" id="seedBtn" onclick="seedRunbooks()">1. Load Sample IT SOPs</button>
+  </header>
+
+  <div id="chat">
+    <div class="msg bot">Hi! Click "1. Load Sample IT SOPs" once to index sample VPN and Okta runbooks, wait ~5 seconds, then describe your IT issue.</div>
+  </div>
+
+  <form onsubmit="sendMessage(event)">
+    <input id="question" placeholder="e.g., My VPN says connected on Mac, but internal Jira won't load..." required />
+    <button type="submit" id="sendBtn">Ask IT</button>
+  </form>
+
+  <script>
+    const sessionId = localStorage.getItem("it_session") || crypto.randomUUID();
+    localStorage.setItem("it_session", sessionId);
+
+    function appendMsg(role, text, sources = []) {
+      const chat = document.getElementById("chat");
+      const div = document.createElement("div");
+      div.className = `msg ${role}`;
+      div.textContent = text;
+      if (sources.length) {
+        const src = document.createElement("div");
+        src.className = "sources";
+        src.textContent = "Sources: " + sources.join(", ");
+        div.appendChild(src);
+      }
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function seedRunbooks() {
+      const btn = document.getElementById("seedBtn");
+      btn.disabled = true;
+      btn.textContent = "Indexing SOPs...";
+      const sops = [
+        {
+          docId: "sop-vpn-dns",
+          title: "VPN Connected But Internal Sites Fail",
+          category: "network",
+          markdown: "## Symptom\nGlobalProtect VPN shows Connected, but internal sites (Jira, GitLab) fail to resolve.\n## macOS Fix\n1. Open Terminal and flush DNS: sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder\n2. Check /etc/resolver/corp.internal points to 10.10.0.53.\n## Windows Fix\n1. Open Command Prompt and run ipconfig /flushdns.\n## Escalation\nIf ping 10.10.0.53 times out, escalate to NetOps for a split-tunnel profile reset."
+        },
+        {
+          docId: "sop-okta-mfa",
+          title: "Okta Verify Push Not Arriving After New Phone",
+          category: "identity",
+          markdown: "## Symptom\nEmployee upgraded phone and no longer receives Okta Verify push prompts.\n## Self-Service Fix\n1. On the Okta login screen, click Verify with something else and choose SMS or Backup Code.\n2. Visit https://sso.company.internal/settings, click Edit Profile, remove the old device under Okta Verify, and scan the new QR code.\n## Escalation\nIf no backup factor is enrolled, contact IT Tier-2 on Slack #it-help with a live video ID check."
+        }
+      ];
+      for (const sop of sops) {
+        await fetch("/api/ingest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sop)
+        });
+      }
+      btn.textContent = "SOPs Indexed!";
+      appendMsg("bot", "Sample VPN & Okta runbooks queued via Cloudflare Workflows! Wait ~5 seconds for embeddings to finish, then ask a question below.");
+    }
+
+    async function sendMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById("question");
+      const btn = document.getElementById("sendBtn");
+      const question = input.value.trim();
+      if (!question) return;
+      appendMsg("user", question);
+      input.value = "";
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId, question })
+        });
+        const data = await res.json();
+        appendMsg("bot", data.answer || "Error getting response.", data.sources || []);
+      } catch (err) {
+        appendMsg("bot", "Request failed: " + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
